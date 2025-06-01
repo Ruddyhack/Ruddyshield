@@ -1,194 +1,383 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
+ruddyshield-pro/
+├── app.py
+├── config.py
+├── requirements.txt
+├── templates/
+│   ├── base.html
+│   ├── index.html
+│   ├── login.html
+│   ├── register.html
+│   ├── dashboard.html
+│   ├── pricing.html
+├── static/
+│   └── css/
+│       └── tailwind.css (via CDN)
+├── utils/
+│   └── alerts.py
+├── models/
+│   └── user.py
+└── README.md
+from flask import Flask, render_template, redirect, url_for, request, session, flash
+import os
+from utils.alerts import get_fake_alerts
+from models.user import UserManager
+from flask_bcrypt import Bcrypt
 
-# C extensions
-*.so
+app = Flask(__name__)
+app.secret_key = os.urandom(24)
+bcrypt = Bcrypt(app)
 
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+user_manager = UserManager()
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
+@app.route('/dashboard')
+def dashboard():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    alerts = get_fake_alerts()
+    return render_template('dashboard.html', alerts=alerts, user=session['user'])
 
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-cover/
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        user = user_manager.authenticate(email, password)
+        if user:
+            session['user'] = user
+            return redirect(url_for('dashboard'))
+        else:
+            flash('Invalid login')
+    return render_template('login.html')
 
-# Translations
-*.mo
-*.pot
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        user_manager.create_user(email, password)
+        flash('Registration successful. Please log in.')
+        return redirect(url_for('login'))
+    return render_template('register.html')
 
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
+@app.route('/logout')
+def logout():
+    session.pop('user', None)
+    return redirect(url_for('index'))
 
-# Flask stuff:
-instance/
-.webassets-cache
+if __name__ == '__main__':
+    app.run(debug=True)
+Flask==2.2.3
+Flask-Bcrypt==1.0.1
+def get_fake_alerts():
+    # Example fake alerts simulating network monitoring
+    return [
+        {"id": 1, "type": "Login Attempt", "message": "Suspicious login detected from IP 192.168.1.10", "severity": "High"},
+        {"id": 2, "type": "Transaction Alert", "message": "Unusual PayPal transaction pattern observed", "severity": "Medium"},
+        {"id": 3, "type": "Network Scan", "message": "Possible port scanning detected from IP 10.0.0.5", "severity": "Low"},
+    ]
+import sqlite3
+from flask_bcrypt import generate_password_hash, check_password_hash
 
-# Scrapy stuff:
-.scrapy
+DB_NAME = 'ruddyshield.db'
 
-# Sphinx documentation
-docs/_build/
+class UserManager:
+    def __init__(self):
+        self.conn = sqlite3.connect(DB_NAME, check_same_thread=False)
+        self.create_table()
 
-# PyBuilder
-.pybuilder/
-target/
+    def create_table(self):
+        with self.conn:
+            self.conn.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email TEXT UNIQUE NOT NULL,
+                    password TEXT NOT NULL
+                )
+            ''')
 
-# Jupyter Notebook
-.ipynb_checkpoints
+    def create_user(self, email, password):
+        hashed_pw = generate_password_hash(password).decode('utf-8')
+        try:
+            with self.conn:
+                self.conn.execute('INSERT INTO users (email, password) VALUES (?, ?)', (email, hashed_pw))
+            return True
+        except sqlite3.IntegrityError:
+            return False
 
-# IPython
-profile_default/
-ipython_config.py
+    def authenticate(self, email, password):
+        user = self.conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+        if user and check_password_hash(user[2], password):
+            return {"id": user[0], "email": user[1]}
+        return None
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RuddyShield Pro - {% block title %}{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.2/dist/tailwind.min.css" rel="stylesheet" />
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" />
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans">
 
-# pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
-# .python-version
+<nav class="bg-red-700 p-4 flex justify-between items-center">
+    <a href="{{ url_for('index') }}" class="text-white text-2xl font-bold">RuddyShield Pro</a>
+    <div>
+        {% if session.get('user') %}
+            <a href="{{ url_for('dashboard') }}" class="mr-4 hover:text-gray-300">Dashboard</a>
+            <a href="{{ url_for('logout') }}" class="hover:text-gray-300">Logout</a>
+        {% else %}
+            <a href="{{ url_for('login') }}" class="mr-4 hover:text-gray-300">Login</a>
+            <a href="{{ url_for('register') }}" class="hover:text-gray-300">Register</a>
+        {% endif %}
+    </div>
+</nav>
 
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-#Pipfile.lock
+<main class="max-w-5xl mx-auto p-6">
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="bg-red-600 p-3 rounded mb-4">
+                {% for message in messages %}
+                    <p>{{ message }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+</main>
 
-# UV
-#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#uv.lock
+<footer class="bg-red-700 p-4 text-center text-gray-200 mt-12">
+    &copy; {{ 2025 }} RuddyShield Pro. All rights reserved.
+</footer>
 
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
-#poetry.lock
+</body>
+</html>
+{% extends "base.html" %}
 
-# pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-#pdm.lock
-#   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
-#   in version control.
-#   https://pdm.fming.dev/latest/usage/project/#working-with-version-control
-.pdm.toml
-.pdm-python
-.pdm-build/
+{% block title %}Home{% endblock %}
 
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
-__pypackages__/
+{% block content %}
+<div class="text-center mt-20">
+    <h1 class="text-5xl font-extrabold mb-4">Welcome to RuddyShield Pro</h1>
+    <p class="text-xl mb-8">Your advanced network monitoring tool focused on PayPal transaction security.</p>
+    {% if not session.get('user') %}
+    <a href="{{ url_for('register') }}" class="bg-red-600 hover:bg-red-800 text-white px-6 py-3 rounded font-semibold">Get Started</a>
+    {% else %}
+    <a href="{{ url_for('dashboard') }}" class="bg-red-600 hover:bg-red-800 text-white px-6 py-3 rounded font-semibold">Go to Dashboard</a>
+    {% endif %}
+</div>
+{% endblock %}
+{% extends "base.html" %}
 
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
+{% block title %}Login{% endblock %}
 
-# SageMath parsed files
-*.sage.py
+{% block content %}
+<div class="max-w-md mx-auto bg-gray-800 p-8 rounded shadow-lg mt-12">
+    <h2 class="text-3xl font-semibold mb-6 text-center">Login to RuddyShield Pro</h2>
+    <form method="POST" action="{{ url_for('login') }}" class="space-y-6">
+        <div>
+            <label for="email" class="block mb-2">Email</label>
+            <input type="email" id="email" name="email" required
+                class="w-full p-3 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:border-red-600" />
+        </div>
+        <div>
+            <label for="password" class="block mb-2">Password</label>
+            <input type="password" id="password" name="password" required
+                class="w-full p-3 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:border-red-600" />
+        </div>
+        <button type="submit" class="w-full bg-red-600 hover:bg-red-800 py-3 rounded text-white font-semibold">Login</button>
+    </form>
+    <p class="mt-4 text-center">Don't have an account? <a href="{{ url_for('register') }}" class="text-red-500 hover:underline">Register here</a></p>
+</div>
+{% endblock %}
+{% extends "base.html" %}
 
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
+{% block title %}Register{% endblock %}
 
-# Spyder project settings
-.spyderproject
-.spyproject
+{% block content %}
+<div class="max-w-md mx-auto bg-gray-800 p-8 rounded shadow-lg mt-12">
+    <h2 class="text-3xl font-semibold mb-6 text-center">Create a RuddyShield Pro Account</h2>
+    <form method="POST" action="{{ url_for('register') }}" class="space-y-6">
+        <div>
+            <label for="email" class="block mb-2">Email</label>
+            <input type="email" id="email" name="email" required
+                class="w-full p-3 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:border-red-600" />
+        </div>
+        <div>
+            <label for="password" class="block mb-2">Password</label>
+            <input type="password" id="password" name="password" required
+                class="w-full p-3 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:border-red-600" />
+        </div>
+        <div>
+            <label for="confirm_password" class="block mb-2">Confirm Password</label>
+            <input type="password" id="confirm_password" name="confirm_password" required
+                class="w-full p-3 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:border-red-600" />
+        </div>
+        <button type="submit" class="w-full bg-red-600 hover:bg-red-800 py-3 rounded text-white font-semibold">Register</button>
+    </form>
+    <p class="mt-4 text-center">Already have an account? <a href="{{ url_for('login') }}" class="text-red-500 hover:underline">Login here</a></p>
+</div>
+{% endblock %}
+{% extends "base.html" %}
 
-# Rope project settings
-.ropeproject
+{% block title %}Dashboard{% endblock %}
 
-# mkdocs documentation
-/site
+{% block content %}
+<h1 class="text-4xl font-bold mb-8">Welcome, {{ session.user.email }}!</h1>
 
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
+<div class="bg-gray-800 p-6 rounded shadow">
+    <h2 class="text-2xl mb-4 font-semibold">Network Monitoring Overview</h2>
+    <p class="mb-4">This is where network alerts, PayPal transaction monitoring, and stats will appear.</p>
+    <!-- Example alert table -->
+    <table class="w-full text-left border-collapse border border-gray-700">
+        <thead>
+            <tr class="bg-red-700 text-white">
+                <th class="border border-gray-600 p-2">Date</th>
+                <th class="border border-gray-600 p-2">Alert Type</th>
+                <th class="border border-gray-600 p-2">Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr class="border border-gray-600">
+                <td class="border border-gray-600 p-2">2025-05-31</td>
+                <td class="border border-gray-600 p-2">Suspicious Login</td>
+                <td class="border border-gray-600 p-2">Login from unknown IP detected</td>
+            </tr>
+            <!-- More rows here -->
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+{% extends "base.html" %}
 
-# Pyre type checker
-.pyre/
+{% block title %}Pricing{% endblock %}
 
-# pytype static type analyzer
-.pytype/
+{% block content %}
+<div class="max-w-4xl mx-auto mt-12">
+    <h1 class="text-4xl font-extrabold mb-8 text-center">RuddyShield Pro Pricing</h1>
+    <p class="text-center mb-10">Choose the plan that fits your needs. Start free and upgrade anytime!</p>
 
-# Cython debug symbols
-cython_debug/
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div class="bg-gray-800 p-6 rounded shadow hover:shadow-lg transition">
+            <h2 class="text-2xl font-semibold mb-4">Free</h2>
+            <p class="text-3xl font-bold mb-4">$0<span class="text-lg font-normal"> / month</span></p>
+            <ul class="mb-6 list-disc list-inside space-y-2">
+                <li>Basic network monitoring</li>
+                <li>Limited PayPal alerts</li>
+                <li>Email support</li>
+            </ul>
+            <button class="w-full bg-red-600 hover:bg-red-800 text-white py-3 rounded font-semibold">Get Started</button>
+        </div>
 
-# PyCharm
-#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#  and can be added to the global gitignore or merged into this file.  For a more nuclear
-#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
+        <div class="bg-gray-700 p-6 rounded shadow hover:shadow-lg transition border-4 border-red-600">
+            <h2 class="text-2xl font-semibold mb-4">Pro</h2>
+            <p class="text-3xl font-bold mb-4">$29<span class="text-lg font-normal"> / month</span></p>
+            <ul class="mb-6 list-disc list-inside space-y-2">
+                <li>Full network monitoring</li>
+                <li>Real-time PayPal transaction tracking</li>
+                <li>SMS & Email alerts</li>
+                <li>Priority support</li>
+            </ul>
+            <button class="w-full bg-red-600 hover:bg-red-800 text-white py-3 rounded font-semibold">Upgrade Now</button>
+        </div>
 
-# Abstra
-# Abstra is an AI-powered process automation framework.
-# Ignore directories containing user credentials, local state, and settings.
-# Learn more at https://abstra.io/docs
-.abstra/
+        <div class="bg-gray-800 p-6 rounded shadow hover:shadow-lg transition">
+            <h2 class="text-2xl font-semibold mb-4">Enterprise</h2>
+            <p class="text-3xl font-bold mb-4">Contact Us</p>
+            <ul class="mb-6 list-disc list-inside space-y-2">
+                <li>Custom network solutions</li>
+                <li>Dedicated account manager</li>
+                <li>24/7 support</li>
+            </ul>
+            <button class="w-full bg-red-600 hover:bg-red-800 text-white py-3 rounded font-semibold">Contact Sales</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% extends "base.html" %}
 
-# Visual Studio Code
-#  Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore 
-#  that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
-#  and can be added to the global gitignore or merged into this file. However, if you prefer, 
-#  you could uncomment the following to ignore the enitre vscode folder
-# .vscode/
+{% block title %}Coming Soon{% endblock %}
 
-# Ruff stuff:
-.ruff_cache/
+{% block content %}
+<div class="flex flex-col items-center justify-center h-screen bg-gray-900 text-white">
+    <h1 class="text-6xl font-extrabold mb-6">Coming Soon</h1>
+    <p class="text-2xl mb-8">RuddyShield Pro is launching shortly. Stay tuned!</p>
+    <a href="{{ url_for('index') }}" class="bg-red-600 hover:bg-red-800 px-6 py-3 rounded font-semibold">Back to Home</a>
+</div>
+{% endblock %}
+from flask import Flask, render_template, redirect, url_for, request, session, flash
 
-# PyPI configuration file
-.pypirc
+app = Flask(__name__)
+app.secret_key = 'your_secret_key_here'  # Change to a secure key for production
 
-# Cursor
-#  Cursor is an AI-powered code editor. `.cursorignore` specifies files/directories to
-#  exclude from AI features like autocomplete and code analysis. Recommended for sensitive data
-#  refer to https://docs.cursor.com/context/ignore-files
-.cursorignore
-.cursorindexingignore
+# Dummy user store for demo
+users = {}
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        email = request.form['email'].lower()
+        password = request.form['password']
+        confirm = request.form['confirm_password']
+
+        if password != confirm:
+            flash("Passwords do not match!", "error")
+            return redirect(url_for('register'))
+        if email in users:
+            flash("Email already registered!", "error")
+            return redirect(url_for('register'))
+        
+        users[email] = {'password': password}
+        flash("Registration successful! Please login.", "success")
+        return redirect(url_for('login'))
+
+    return render_template('register.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form['email'].lower()
+        password = request.form['password']
+
+        user = users.get(email)
+        if user and user['password'] == password:
+            session['user'] = {'email': email}
+            flash("Logged in successfully!", "success")
+            return redirect(url_for('dashboard'))
+        else:
+            flash("Invalid credentials!", "error")
+            return redirect(url_for('login'))
+
+    return render_template('login.html')
+
+@app.route('/dashboard')
+def dashboard():
+    if 'user' not in session:
+        flash("Please login to access the dashboard.", "error")
+        return redirect(url_for('login'))
+    return render_template('dashboard.html')
+
+@app.route('/pricing')
+def pricing():
+    return render_template('pricing.html')
+
+@app.route('/coming-soon')
+def coming_soon():
+    return render_template('coming_soon.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('user', None)
+    flash("Logged out successfully.", "success")
+    return redirect(url_for('index'))
+
+if __name__ == '__main__':
+    app.run(debug=True)
