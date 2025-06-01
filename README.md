@@ -40,7 +40,8 @@ python app.p
 
 🧪 Demo Preview
 
-A video walkthrough and screenshots will be added soon.
+A video walkthrough and screenshots will be added soon
+
 🔒 Security Statement
 
 RuddyShield Pro is intended for educational, research, and ethical monitoring purposes only. It is not designed for or to be used in unauthorized scanning or access of networks you do not own or have permission to monitor.
