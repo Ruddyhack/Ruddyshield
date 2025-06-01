@@ -36,7 +36,8 @@ Built for security researchers, tech explorers, and businesses that need a simpl
    ```bash
    pip install -r requirements.txt
 run the app
-python app.py
+python app.p
+
 🧪 Demo Preview
 
 A video walkthrough and screenshots will be added soon.
