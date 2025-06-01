@@ -5,8 +5,7 @@
 ├── .github/
 │   └── workflows/
 │       └── python-app.yml
-name: Python application
-
+ Python application
 on:
   push:
     branches: [ main ]
