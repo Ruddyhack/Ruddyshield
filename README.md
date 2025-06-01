@@ -23,15 +23,3 @@ Built for security researchers, tech explorers, and businesses that need a simpl
 
 ---
 
-## 🚀 Getting Started
-
-### 🧰 Requirements
-- Python 3.8+
-- Flask
-- TailwindCSS (bundled or via CDN)
-
-### ⚙️ Setup (Locally or on Replit)
-1. Clone the repo or upload files to Replit
-2. Install dependencies:  
-   ```bash
-   pip install -r requirements.txt
