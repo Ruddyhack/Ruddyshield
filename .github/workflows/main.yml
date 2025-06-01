@@ -16,7 +16,7 @@ def home()
 if __name__ == '__main__'
     app.run(debug=True)
 flask
-name: Python application
+name Python application
 
 on:
   push:
