@@ -1,0 +1,53 @@
+/ruddyshield/
+├── app.py
+├── requirements.txt
+├── README.md
+├── .github/
+│   └── workflows/
+│       └── python-app.yml
+from flask import Flask
+
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Welcome to RuddyShield!"
+
+if __name__ == '__main__':
+    app.run(debug=True)
+flask
+name: Python application
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run app
+      run: |
+        python app.py
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin https://github.com/yourusername/ruddyshield.git
+git push -u origin main
