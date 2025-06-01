@@ -11,15 +11,6 @@ Built for security researchers, tech explorers, and businesses that need a simpl
 
 ---
 
-## 🎯 Features
-
-- 🔐 **User Authentication** (Sign up & Login)
-- 📡 **Live Network Activity Monitoring**
-- 📊 **Real-Time Alert Dashboard**
-- 💬 **Custom Alert Notifications via Email/SMS**
-- 💾 **Logs & Record Keeping**
-- 💸 **Coming Soon: Subscription Pricing Page**
-- 🎨 **TailwindCSS UI with Dark Theme (Ruddy Red + Black)**
 
 ---
 
